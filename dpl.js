@@ -1,9 +1,76 @@
 function dpl(html, doc) {
-    doc = doc || document;
-    var root = doc.createElement('div');
-    root.innerHTML = html;
-    var rootNode = new dpl.Node(root);
+    html = dpl._pre(html);
+    var root = new dpl.nodes.Root(html, doc || document);
 }
+
+dpl._preprocessors = [function assignIds(html) {
+    var id = 0;
+    return html.replace(/<tpl\b/g, function() {
+        return '<tpl tpl-id="' + (id++) + '" ';
+    });
+}];
+
+dpl._pre = function(html) {
+    var i = 0, preprocessors = dpl._preprocessors;
+    while ((p = preprocessors[i])) {
+        html = p(html);
+    }
+    return html;
+};
+
+dpl._extend = function(base, contstruct, mixin) {
+    if (base) {
+        function C() {};
+        C.prototype = base.prototype;
+        var proto = construct.proto = new C();
+
+        for (var key in mixin) {
+            if (mixin.hasOwnProperty(key)) {
+                proto[key] = mixin[key];
+            }
+        }
+    }
+
+    return construct;
+};
+
+dpl._createNode = function(tplNode) {
+};
+
+
+
+dpl.nodes = (function(dpl) {
+    var extend = dpl._extend;
+    var createNode = dpl._createNode;
+
+    function Block(html, doc) {
+        var root = this._tplRoot = document.createElement('div');
+        root.innerHtml = html;
+    }
+    var bpt = Block.prototype = {
+        build: function(outNode, nodeObjs) {
+            var node, tplNodes = this._tplRoot.getElementsByTagName("tpl");
+            while ((node = tplNodes[0])) {
+                var id = node.getAttribute("tpl-id");
+                var nodeObj = nodeObjs[id] || (nodeObjs[id] = createNode(node));
+            }
+        }
+    }
+
+    function Inline(node) {
+
+    }
+
+    extend(Block, Root);
+    function Root(html, doc){
+        Block.call(this, html, doc);
+        this._nodes = [];
+    }
+
+    return {
+        Root: Root
+    }
+}(dpl));
 
 dpl.Node = function(node) {
     this._node = node;
@@ -12,19 +79,6 @@ dpl.Node = function(node) {
     this.parse();
 };
 
-dpl.Node.extend = function(construct, mixin) {
-    function C(){};
-    C.prototype = this.prototype;
-    var proto = construct.proto = new C();
-
-    for (var key in mixin) {
-        if (mixin.hasOwnProperty(key)) {
-            proto[key] = mixin[key];
-        }
-    }
-
-    return construct;
-};
 
 dpl.Node.prototype = {
     init: function() {
@@ -44,8 +98,14 @@ dpl.Node.prototype = {
 };
 
 dpl.nodes = {
-    iter: dpl.Node.extend(function IterNode(dom) {dpl.Node.call(this)}, {
+    iter: dpl.Node.extend(function IterNode(node) {dpl.Node.call(this, node)}, {
 
+    }),
+
+    text: dpl.Node.extend(function TextNode(node) {dpl.Node.call(this, node)}, {
+        parse: function() {
+            this._emptyText = this._node.innerText || this._node.textContent;
+        }
     }),
 };
 
