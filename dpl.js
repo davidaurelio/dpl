@@ -84,7 +84,7 @@ Context.prototype = {
         var nodes = subs.hasOwnProperty(path) && subs[path];
         for (var i = 0, len = nodes && nodes.length; i < len; i += 2) {
             var node = nodes[i], nodeObj = nodes[i + 1];
-            nodeObj.ondata(data, node);
+            nodeObj.ondata(data.data, node);
         }
     },
 
@@ -190,45 +190,57 @@ function InlineNode(tplNode) {
 extend(InlineNode, Node);
 
 function TextNode(tplNode) {
-    InlineNode.call(this);
+    InlineNode.call(this, tplNode);
     this._defaultText = tplNode["textContent" in tplNode ? "textContent" : "innerText"]
 }
 extend(TextNode, InlineNode, {
     _destroy: function(node) {
         node.data = "";
     },
-    _ondata: function(node, data) {
+    _ondata: function(data, node) {
         node.data = data != null ? data : this._defaultText;
     }
 });
 
 function HtmlNode(tplNode) {
-    InlineNode.call(this);
-    this._startNodes = [];
-
+    InlineNode.call(this, tplNode);
     this._defaultHtml = tplNode.innerHtml;
+    this._builtNodes = [];
+    this._numNodes = [];
 }
 extend(HtmlNode, InlineNode, {
     _build: function(placeHolder) {
-        var startNode = placeHolder.cloneNode(false);
-        placeHolder.parentNode.insertBefore(startNode, placeHolder);
-        this._startNodes.push(startNode);
+        this._builtNodes.push(placeHolder);
+        this._numNodes.push(0);
     },
+
     _destroy: function(placeHolder) {
         var i = this._buildNodes.indexOf(placeHolder);
-        if (i == -1) {
-            return;
-        }
-        var node = this._startNodes[i];
-        do {
-            node = node.nextSibling;
-            node.parentNode.removeChild(node.previousSibling);
-        } while (node !== placeHolder);
+        if (i == -1) { return; }
+        this._ondata("", node);
+        this._builtNodes.splice(i, 1);
+        this._numNodes.splice(i, 1);
     },
-    _ondata: function(node, data) {
 
+    _ondata: function(html, node) {
+        var i = this._builtNodes.indexOf(node);
+        if (i == -1) { return; }
 
-        node.innerHtml = data != null ? data : this._defaultHtml;
+        var numNodes = this._numNodes, p = node.parentNode;
+
+        // clean previous nodes
+        var num = numNodes[i];
+        while (num--) {
+            p.removeChild(node.previousSibling);
+        }
+
+        if (html == null) {
+            html = this._defaultHtml;
+        }
+        var cn = node.parentNode.childNodes;
+        var numChildrenBefore = cn.length;
+        htmlBefore(node, html);
+        numNodes[i] = cn.length - numChildrenBefore;
     }
 })
 
