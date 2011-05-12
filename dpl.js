@@ -1,123 +1,242 @@
-function dpl(html, doc) {
-    html = dpl._pre(html);
-    var root = new dpl.nodes.Root(html, doc || document);
+"use strict";
+
+function dpl() {}
+
+(function(exports) {
+
+var uuid = 0;
+
+function bind(func, context) {
+    return function() {
+        return func.apply(context, arguments);
+    }
 }
 
-dpl._preprocessors = [function assignIds(html) {
-    var id = 0;
-    return html.replace(/<tpl\b/g, function() {
-        return '<tpl tpl-id="' + (id++) + '" ';
-    });
-}];
-
-dpl._pre = function(html) {
-    var i = 0, preprocessors = dpl._preprocessors;
-    while ((p = preprocessors[i])) {
-        html = p(html);
-    }
-    return html;
-};
-
-dpl._extend = function(base, contstruct, mixin) {
-    if (base) {
-        function C() {};
-        C.prototype = base.prototype;
-        var proto = construct.proto = new C();
-
-        for (var key in mixin) {
-            if (mixin.hasOwnProperty(key)) {
-                proto[key] = mixin[key];
-            }
+function extend(Contstruct, superType, proto) {
+    function C() {};
+    C.prototype = superType.prototoype;
+    var p = Construct.prototype = new C();
+    for (var name in proto) {
+        if (proto.hasOwnProperty(name)) {
+            p[name] = proto[name];
         }
     }
 
-    return construct;
-};
+    return Construct;
+}
 
-dpl._createNode = function(tplNode) {
-};
-
-
-
-dpl.nodes = (function(dpl) {
-    var extend = dpl._extend;
-    var createNode = dpl._createNode;
-
-    function Block(html, doc) {
-        var root = this._tplRoot = document.createElement('div');
-        root.innerHtml = html;
+function htmlToFragment(html, doc) {
+    var d = doc.createElement("div");
+    d.innerHtml = html;
+    var f = doc.createDocumentFragment();
+    var numNodes = d.childNodes.length;
+    while (numNodes--) {
+        f.appendChild(d.firstChild);
     }
-    var bpt = Block.prototype = {
-        build: function(outNode, nodeObjs) {
-            var node, tplNodes = this._tplRoot.getElementsByTagName("tpl");
-            while ((node = tplNodes[0])) {
-                var id = node.getAttribute("tpl-id");
-                var nodeObj = nodeObjs[id] || (nodeObjs[id] = createNode(node));
-            }
+
+    return f;
+}
+
+function htmlBefore(node, html) {
+    if (node.ownerDocument.documentElement.insertAdjacentHtml) {
+        htmlBefore = function(node, html) {
+            var parent = node.parentElement
+            var helper = parent.insertBefore(node.ownerDocument.createElement("div"), node);
+            helper.insertAdjacentHtml("beforeBegin", html);
+            parent.removeChild(helper);
         }
     }
-
-    function Inline(node) {
-
+    else {
+        htmlBefore = function(node, html) {
+            var fragment = htmlToFragment(html, node.ownerDocument);
+            node.parentNode.insertBefore(fragment, node);
+        }
     }
+    htmlBefore(node, html);
 
-    extend(Block, Root);
-    function Root(html, doc){
-        Block.call(this, html, doc);
-        this._nodes = [];
-    }
+    // don't create a closure over outer parameters
+    node = html = null;
+}
 
-    return {
-        Root: Root
-    }
-}(dpl));
+/*
+    =================================================================== CONTEXT
+*/
+function Context(store) {
+    this._uuid = uuid++;
+    this._store = store;
+    this._aliases = {};
+    this._subs = {
+        // subscriptionPath: [subscribedNode0, nodeObj0, subscribedNode1, nodeObj1, ...]
+    };
 
-dpl.Node = function(node) {
-    this._node = node;
-    this._children = [];
-    this.init();
-    this.parse();
-};
+    var ondata = this.ondata = bind(this._ondata, this);
+    store.subscribe(null, ondata);
+}
 
-
-dpl.Node.prototype = {
-    init: function() {
-        var node = this._node;
-        var renderNode = this._renderNode = node.ownerDocument.createTextNode('');
-        node.parentNode.replaceChild(renderNode, node);
+Context.prototype = {
+    addAlias: function(alias, mapsTo) {
+        var aliases = this._aliases;
+        (aliases[alias] || (aliases[alias] = [])).unshift(mapsTo);
     },
-    parse: function() {
-        var node = this._node, children = this._children;
-        var tplNodes = node.getElementsByTagName("tpl"), tplNode;
 
-        while ((tplNode = tplNodes[0])) {
-            var type = tplNode.getAttribute(type);
-            children.push(new dpl.nodes[type](tplNode));
+    _ondata: function(event) {
+        var path = event.path, subs = this._subs;
+        var nodes = subs.hasOwnProperty(path) && subs[path];
+        for (var i = 0, len = nodes && nodes.length; i < len; i += 2) {
+            var node = nodes[i], nodeObj = nodes[i + 1];
+            nodeObj.ondata(data, node);
+        }
+    },
+
+    remAlias: function(alias) {
+        var aliases = this._aliases;
+        if (aliases.hasOwnProperty(alias)) {
+            var mappings = aliases[alias];
+            mappings.shift()
+            if (!mappings.length) {
+                delete aliases[alias];
+            }
+        }
+    },
+
+    resolve: function(path) {
+        var bits = path.split(".");
+        var first = bits[0];
+        var mappings = this._aliases[first];
+        if (mappings) {
+            (bits[0] = mappings[0]);
+        }
+
+        return bits.join(".");
+    },
+
+    sub: function(path, node, nodeObj) {
+        var subs = this._subs;
+        var nodes = subs.hasOwnProperty(path) ? subs[path] : (subs[path] = []);
+        if (!nodes.indexOf(node)) {
+            nodes.push(node, nodeObj);
+        }
+    },
+
+    unsub: function(path, node) {
+        var subs = this._subs, idx;
+        var nodes = subs.hasOwnProperty(path) ? subs[path] : null;
+        if (nodes && (idx = nodes.indexOf(node)) !== -1) {
+            nodes.splice(idx, 2)
         }
     }
-};
+}
 
-dpl.nodes = {
-    iter: dpl.Node.extend(function IterNode(node) {dpl.Node.call(this, node)}, {
+/*
+    ================================================================= BASE NODE
+*/
 
-    }),
+function Node(tplNode) {
+    this._uuid = uuid++;
+    this._var = tplNode.getAttribute("var");
 
-    text: dpl.Node.extend(function TextNode(node) {dpl.Node.call(this, node)}, {
-        parse: function() {
-            this._emptyText = this._node.innerText || this._node.textContent;
+    var node = this;
+    this.ondata = bind(this._ondata, this);
+}
+Node.prototype = {
+    build: function(targetNode, /**Context*/context) {
+        var placeHolder = targetNode.ownerDocument.createTextNode("");
+        targetNode.parentNode.replaceChild(placeHolder, targetNode);
+        targetNode.innerHtml = ""; // throw away stuff to save memory
+
+        var resolvedPath = context.resolve(this._var);
+        context.sub(resolvedPath, placeHolder, this);
+
+        this._build && this._build(placeHolder, context, resolvedVar);
+
+        return placeHolder;
+    },
+
+    destroy: function(placeHolder) {
+        var resolvedPath = context.resolve(this._var);
+        context.unsub(resolvedPath, placeHolder);
+        if (this._destroy) {
+            this._destroy(placeHolder);
         }
-    }),
-};
+    },
 
-dpl.RootNode = dpl.Node.extend({
-    render: function(){
-        var childNodes = this._node.childNodes;
-        var f = node.ownerDocument.createDocumentFragment();
-        var i = childNodes.length;
-        while (i--) {
-            f.appendChild(childNodes[0]);
-        }
+    _ondata: function(data, node) {}
+}
 
-        return f;
+/*
+    =============================================================== BLOCK NODES
+*/
+
+function BlockNode(tplNode) {
+    Node.call(this, tplNode);
+    this._html = tplNode && tplNode.innerHtml;
+}
+extend(BlockNode, Node);
+
+function RootNode(html) {
+    BlockNode.call(this);
+    this._html = html;
+}
+extend(RootNode, BlockNode);
+
+
+/*
+    ============================================================== INLINE NODES
+*/
+
+function InlineNode(tplNode) {
+    Node.call(this, tplNode);
+}
+extend(InlineNode, Node);
+
+function TextNode(tplNode) {
+    InlineNode.call(this);
+    this._defaultText = tplNode["textContent" in tplNode ? "textContent" : "innerText"]
+}
+extend(TextNode, InlineNode, {
+    _destroy: function(node) {
+        node.data = "";
+    },
+    _ondata: function(node, data) {
+        node.data = data != null ? data : this._defaultText;
     }
 });
+
+function HtmlNode(tplNode) {
+    InlineNode.call(this);
+    this._startNodes = [];
+
+    this._defaultHtml = tplNode.innerHtml;
+}
+extend(HtmlNode, InlineNode, {
+    _build: function(placeHolder) {
+        var startNode = placeHolder.cloneNode(false);
+        placeHolder.parentNode.insertBefore(startNode, placeHolder);
+        this._startNodes.push(startNode);
+    },
+    _destroy: function(placeHolder) {
+        var i = this._buildNodes.indexOf(placeHolder);
+        if (i == -1) {
+            return;
+        }
+        var node = this._startNodes[i];
+        do {
+            node = node.nextSibling;
+            node.parentNode.removeChild(node.previousSibling);
+        } while (node !== placeHolder);
+    },
+    _ondata: function(node, data) {
+
+
+        node.innerHtml = data != null ? data : this._defaultHtml;
+    }
+})
+
+
+exports.nodes = {
+    root: RootNode,
+    text: TextNode,
+    html: HtmlNode
+}
+
+}(dpl));
