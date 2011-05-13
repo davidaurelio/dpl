@@ -81,12 +81,11 @@ function Context(store) {
     this._uuid = uuid++;
     this._store = store;
     this._aliases = {};
-    this._subs = {
-        // subscriptionPath: [domNode0, nodeObj0, domNode1, nodeObj1, ...]
-    };
 
-    var ondata = this.ondata = bind(this._ondata, this);
-    store.subscribe(null, ondata);
+    this._subPaths = [/*  path0                                  , path1 */];
+    this._subNodes = [/* [domNode0, nodeObj0, domNode1, nodeObj1], [...] */]
+
+    this.ondata = bind(this._ondata, this);
 }
 
 Context.prototype = {
@@ -127,18 +126,29 @@ Context.prototype = {
     },
 
     sub: function(path, node, nodeObj) {
-        var subs = this._subs;
-        var nodes = subs.hasOwnProperty(path) ? subs[path] : (subs[path] = []);
-        if (!nodes.indexOf(node)) {
+        var subPaths = this._subPaths, subNodes = this._subNodes;
+        var idx = subPaths.indexOf(path), nodes = subNodes[idx];
+        if (idx == -1) {
+            subPaths.push(path);
+            subNodes.push(nodes = []);
+        }
+
+        if (nodes.indexOf(node) == -1) {
             nodes.push(node, nodeObj);
         }
     },
 
     unsub: function(path, node) {
-        var subs = this._subs, idx;
-        var nodes = subs.hasOwnProperty(path) ? subs[path] : null;
-        if (nodes && (idx = nodes.indexOf(node)) !== -1) {
-            nodes.splice(idx, 2)
+        var subPaths = this._subPaths, subNodes = this._subNodes;
+        var idx = subPaths.indexOf(path), nodes = subNodes[idx], i;
+        if (idx != -1) {
+            if ((i = nodes.indexOf(node)) !== -1) {
+                nodes.splice(idx, 2);
+                if (!nodes.length) {
+                    subPaths.splice(idx, 1);
+                    subNodes.splice(idx, 1);
+                }
+            }
         }
     }
 }
