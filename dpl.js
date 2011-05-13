@@ -1,6 +1,8 @@
 "use strict";
 
-function dpl() {}
+function dpl(html) {
+    return new dpl.nodes.Root(html);
+}
 
 (function(exports) {
 
@@ -139,24 +141,24 @@ function Node(tplNode) {
     this.ondata = bind(this._ondata, this);
 }
 Node.prototype = {
-    build: function(targetNode, /**Context*/context) {
-        var placeHolder = targetNode.ownerDocument.createTextNode("");
-        targetNode.parentNode.replaceChild(placeHolder, targetNode);
+    build: function(targetNode, /**Context*/context, /**Array*/nodeObjs) {
+        var placeholder = targetNode.ownerDocument.createTextNode("");
+        targetNode.parentNode.replaceChild(placeholder, targetNode);
         targetNode.innerHtml = ""; // throw away stuff to save memory
 
         var resolvedPath = context.resolve(this._var);
-        context.sub(resolvedPath, placeHolder, this);
+        context.sub(resolvedPath, placeholder, this);
 
-        this._build && this._build(placeHolder, context, resolvedVar);
+        this._build && this._build(placeholder, context, nodeObjs);
 
-        return placeHolder;
+        return placeholder;
     },
 
-    destroy: function(placeHolder) {
+    destroy: function(placeholder) {
         var resolvedPath = context.resolve(this._var);
-        context.unsub(resolvedPath, placeHolder);
+        context.unsub(resolvedPath, placeholder);
         if (this._destroy) {
-            this._destroy(placeHolder);
+            this._destroy(placeholder);
         }
     },
 
@@ -169,15 +171,41 @@ Node.prototype = {
 
 function BlockNode(tplNode) {
     Node.call(this, tplNode);
-    this._html = tplNode && tplNode.innerHtml;
+    this._html = tplNode.innerHtml;
 }
-extend(BlockNode, Node);
+extend(BlockNode, Node, {
+    _build: function(placeholder, context, /**Array*/nodeObjs) {
+        var dom = this._dom, doc = placeholder.ownerDocument;
+        if (!dom) {
+            dom = this._dom = doc.createElement("div");
+            dom.innerHtml = this._html;
+        }
+
+        var tree = doc.importNode(dom, true);
+        var tplNodes = tree.getElementsByTagName("tpl"), tplNode;
+        while ((tplNode = tplNodes[0])) {
+            var tplId = tplNode.getAttribute("tpl-id");
+            var nodeObj = nodeObjs[tplId] || (nodeObjs[tplId] = new dpl.nodes[tplNode.getAttribute("type")](tplNode));
+            nodeObj.build(tplNode, context, nodeObjs);
+        }
+    }
+});
 
 function RootNode(html) {
-    BlockNode.call(this);
+    BlockNode.call(this, 0);
     this._html = html;
+    this._nodeObjs = [];
 }
-extend(RootNode, BlockNode);
+extend(RootNode, BlockNode, {
+    render: function(context, doc) {
+        doc = doc || document;
+        var f = doc.createDocumentFragment();
+        var t = f.appendChild(doc.createTextNode(""));
+        this.build(t, context, this._nodeObjs);
+
+        return f;
+    }
+});
 
 
 /*
@@ -209,13 +237,13 @@ function HtmlNode(tplNode) {
     this._numNodes = [];
 }
 extend(HtmlNode, InlineNode, {
-    _build: function(placeHolder) {
-        this._builtNodes.push(placeHolder);
+    _build: function(placeholder) {
+        this._builtNodes.push(placeholder);
         this._numNodes.push(0);
     },
 
-    _destroy: function(placeHolder) {
-        var i = this._buildNodes.indexOf(placeHolder);
+    _destroy: function(placeholder) {
+        var i = this._buildNodes.indexOf(placeholder);
         if (i == -1) { return; }
         this._ondata("", node);
         this._builtNodes.splice(i, 1);
