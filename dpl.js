@@ -119,6 +119,10 @@ Context.prototype = {
         }
     },
 
+    init: function() {
+        this._store.subscribe(null, this.ondata);
+    },
+
     remAlias: function(alias) {
         var aliases = this._aliases;
         if (aliases.hasOwnProperty(alias)) {
@@ -250,7 +254,9 @@ extend(RootNode, BlockNode, {
         doc = doc || document;
         var f = doc.createDocumentFragment();
         var t = f.appendChild(doc.createTextNode(""));
-        this.build(t, new Context(store), this._nodeObjs);
+        var c = new Context(store);
+        this.build(t, c, this._nodeObjs);
+        c.init();
 
         return f;
     }
