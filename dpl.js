@@ -205,6 +205,12 @@ extend(BlockNode, Node, {
             var nodeObj = nodeObjs[tplId] || (nodeObjs[tplId] = new dpl.nodes[tplNode.getAttribute("type")](tplNode));
             nodeObj.build(tplNode, context, nodeObjs);
         }
+
+        var numNodes = tree.childNodes.length, p = placeholder.parentNode;
+        while (numNodes--) {
+            p.insertBefore(tree.firstChild, placeholder);
+        }
+
     }
 });
 
