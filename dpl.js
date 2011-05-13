@@ -197,11 +197,11 @@ function RootNode(html) {
     this._nodeObjs = [];
 }
 extend(RootNode, BlockNode, {
-    render: function(context, doc) {
+    render: function(store, doc) {
         doc = doc || document;
         var f = doc.createDocumentFragment();
         var t = f.appendChild(doc.createTextNode(""));
-        this.build(t, context, this._nodeObjs);
+        this.build(t, new Context(store), this._nodeObjs);
 
         return f;
     }
