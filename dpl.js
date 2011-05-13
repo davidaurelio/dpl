@@ -219,7 +219,7 @@ extend(InlineNode, Node);
 
 function TextNode(tplNode) {
     InlineNode.call(this, tplNode);
-    this._defaultText = tplNode["textContent" in tplNode ? "textContent" : "innerText"]
+    this._defaultText = tplNode.textContent || tplNode.innerText || "";
 }
 extend(TextNode, InlineNode, {
     _destroy: function(node) {
