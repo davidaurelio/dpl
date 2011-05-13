@@ -54,11 +54,11 @@ function htmlToFragment(html, doc) {
 }
 
 function htmlBefore(node, html) {
-    if (node.ownerDocument.documentElement.insertAdjacentHtml) {
+    if (node.ownerDocument.documentElement.insertAdjacentHTML) {
         htmlBefore = function(node, html) {
             var parent = node.parentElement
             var helper = parent.insertBefore(node.ownerDocument.createElement("div"), node);
-            helper.insertAdjacentHtml("beforeBegin", html);
+            helper.insertAdjacentHTML("beforeBegin", html);
             parent.removeChild(helper);
         }
     }
