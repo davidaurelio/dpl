@@ -30,7 +30,7 @@ function bind(func, context) {
 
 function extend(Construct, superType, proto) {
     function C() {};
-    C.prototype = superType.prototoype;
+    C.prototype = superType.prototype;
     var p = Construct.prototype = new C();
     for (var name in proto) {
         if (proto.hasOwnProperty(name)) {
@@ -43,7 +43,7 @@ function extend(Construct, superType, proto) {
 
 function htmlToFragment(html, doc) {
     var d = doc.createElement("div");
-    d.innerHtml = html;
+    d.innerHTML = html;
     var f = doc.createDocumentFragment();
     var numNodes = d.childNodes.length;
     while (numNodes--) {
@@ -158,7 +158,7 @@ Node.prototype = {
     build: function(targetNode, /**Context*/context, /**Array*/nodeObjs) {
         var placeholder = targetNode.ownerDocument.createTextNode("");
         targetNode.parentNode.replaceChild(placeholder, targetNode);
-        targetNode.innerHtml = ""; // throw away stuff to save memory
+        targetNode.innerHTML = ""; // throw away stuff to save memory
 
         var resolvedPath = context.resolve(this._var);
         context.sub(resolvedPath, placeholder, this);
@@ -185,14 +185,14 @@ Node.prototype = {
 
 function BlockNode(tplNode) {
     Node.call(this, tplNode);
-    this._html = tplNode.innerHtml;
+    this._html = tplNode && tplNode.innerHTML;
 }
 extend(BlockNode, Node, {
     _build: function(placeholder, context, /**Array*/nodeObjs) {
         var dom = this._dom, doc = placeholder.ownerDocument;
         if (!dom) {
             dom = this._dom = doc.createElement("div");
-            dom.innerHtml = this._html;
+            dom.innerHTML = this._html;
         }
 
         var tree = doc.importNode(dom, true);
@@ -246,7 +246,7 @@ extend(TextNode, InlineNode, {
 
 function HtmlNode(tplNode) {
     InlineNode.call(this, tplNode);
-    this._defaultHtml = tplNode.innerHtml;
+    this._defaultHtml = tplNode.innerHTML;
     this._builtNodes = [];
     this._numNodes = [];
 }
