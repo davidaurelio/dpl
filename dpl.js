@@ -68,7 +68,7 @@ function Context(store) {
     this._store = store;
     this._aliases = {};
     this._subs = {
-        // subscriptionPath: [subscribedNode0, nodeObj0, subscribedNode1, nodeObj1, ...]
+        // subscriptionPath: [domNode0, nodeObj0, domNode1, nodeObj1, ...]
     };
 
     var ondata = this.ondata = bind(this._ondata, this);
