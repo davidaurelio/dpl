@@ -1,9 +1,23 @@
 "use strict";
 
 function dpl(html) {
-    return new dpl.nodes.Root(html);
+    return new dpl.nodes.root(dpl._preprocess(html));
 }
 
+dpl._preprocessors = [function assignIds(html) {
+    var id = 0;
+    return html.replace(/<tpl\b/g, function() {
+        return '<tpl tpl-id="' + (id++) + '" ';
+    });
+}];
+
+dpl._preprocess = function(html) {
+    var preprocessors = dpl._preprocessors;
+    for (var i = 0, p; (p = preprocessors[i++]); ) {
+        html = p(html);
+    }
+    return html;
+};
 (function(exports) {
 
 var uuid = 0;
