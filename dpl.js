@@ -95,11 +95,27 @@ Context.prototype = {
     },
 
     _ondata: function(event) {
-        var path = event.path, subs = this._subs;
-        var nodes = subs.hasOwnProperty(path) && subs[path];
-        for (var i = 0, len = nodes && nodes.length; i < len; i += 2) {
-            var node = nodes[i], nodeObj = nodes[i + 1];
-            nodeObj.ondata(data.data, node);
+        var path = event.path, data = event.data;
+        var subPaths = this._subPaths, subNodes = this._subNodes;
+        for (var i = 0, len = subPaths.length; i < len; i++) {
+            var p = subPaths[i];
+            if (path == null || p == path || p.indexOf(path + ".") == 0) {
+                var d = data;
+                var bits = p.split(".");
+                for (var j = 0, lenJ = bits.length; j < lenJ; j++) {
+                    if (d != null) {
+                        d = d[bits[j]];
+                    } else {
+                        break;
+                    }
+                }
+
+                var nodes = subNodes[i];
+                for (j = 0, lenJ = nodes.length; j < len; j += 2) {
+                    var node = nodes[j], nodeObj = nodes[j + 1];
+                    nodeObj.ondata(d, node)
+                }
+            }
         }
     },
 
