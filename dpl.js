@@ -14,7 +14,7 @@ function bind(func, context) {
     }
 }
 
-function extend(Contstruct, superType, proto) {
+function extend(Construct, superType, proto) {
     function C() {};
     C.prototype = superType.prototoype;
     var p = Construct.prototype = new C();
