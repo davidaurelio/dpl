@@ -149,7 +149,7 @@ Context.prototype = {
 
 function Node(tplNode) {
     this._uuid = uuid++;
-    this._var = tplNode.getAttribute("var");
+    this._var = tplNode && tplNode.getAttribute("var");
 
     var node = this;
     this.ondata = bind(this._ondata, this);
@@ -160,8 +160,11 @@ Node.prototype = {
         targetNode.parentNode.replaceChild(placeholder, targetNode);
         targetNode.innerHTML = ""; // throw away stuff to save memory
 
-        var resolvedPath = context.resolve(this._var);
-        context.sub(resolvedPath, placeholder, this);
+        var path = this._var;
+        if (path != null) {
+            var resolvedPath = context.resolve(this._var);
+            context.sub(resolvedPath, placeholder, this);
+        }
 
         this._build && this._build(placeholder, context, nodeObjs);
 
@@ -206,7 +209,7 @@ extend(BlockNode, Node, {
 });
 
 function RootNode(html) {
-    BlockNode.call(this, 0);
+    BlockNode.call(this);
     this._html = html;
     this._nodeObjs = [];
 }
